@@ -11,6 +11,7 @@ import numpy as np
 import random
 import gc
 import math
+import re
 from torchvision.transforms import v2
 from CKA import CKA
 from utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, WarmUpLR
@@ -172,19 +173,28 @@ def main(args):
   set_of_all_layer_names = set()
   counter_for_cnn_layers = args.number_of_cnn_layers
     
+  sampled_indices = np.linspace(0, key - 1, counter_for_cnn_layers).astype(int)
+  current_index_for_indices = 0
+  index_counter_for_cnn_layers = 0
+  
   for name, module in net.named_modules():
     if counter_for_cnn_layers == 0:
       break
     if is_cnn_layer(module):
-      tracker_of_layers_randomly_sampled_input_weights[name] = []
-      tracker_of_cka_values_across_epochs[name] = []
-      cka_freeze_layer_decisions[name] = []
-      cka_freeze_layer_configuration[name] = -1
-      tracker_of_cka_window_values_across_epochs[name] = []
+      if index_counter_for_cnn_layers == sampled_indices[current_index_for_indices]:
+        tracker_of_layers_randomly_sampled_input_weights[name] = []
+        tracker_of_cka_values_across_epochs[name] = []
+        cka_freeze_layer_decisions[name] = []
+        cka_freeze_layer_configuration[name] = -1
+        tracker_of_cka_window_values_across_epochs[name] = []
         
-      set_of_all_layer_names.add(name)
+        set_of_all_layer_names.add(name)
     
-      counter_for_cnn_layers -= 1
+        counter_for_cnn_layers -= 1
+        current_index_for_indices += 1
+      # Always increment index counter
+      index_counter_for_cnn_layers += 1
+  
 
   accuracy_list = []
   training_loss_list = []
@@ -254,6 +264,10 @@ def main(args):
 
     is_previous_layer_frozen = True
     for model_layer in model_layers:
+      if args.similarity_guided_training:
+        # Already froze layer, no need to compute CKA
+        if cka_freeze_layer_configuration[model_layer] != -1:
+            continue
       print(f"Comparing for {model_layer} at epoch {epoch}")
       cka = CKA(net, fully_trained_reference_model, model1_name=f'ResNet50_{epoch}_Epoch', model2_name='ResNet50_Fully_Trained', model1_layers=[model_layer], model2_layers=[model_layer], device=device)
       with torch.no_grad():
@@ -417,7 +431,7 @@ def main(args):
     pickle.dump(track_conv_frozen, f)
 
 class Arguments:
- def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=True):
+ def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=False):
   self.epochs = epochs
   self.batch_size = batch_size
   self.seed = seed
@@ -440,19 +454,67 @@ class Arguments:
 ################################################
 ##### Validation of New FRZ Predictor      #####
 ################################################
-# seed = 924 # In-Distribution
-# context_window_size = 30
-# args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_10_conv_seed_25_experiment/validation_of_predictions_linear_restriction_plus_frz", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_10_conv_seed_25_experiment/training_data/context_window_{context_window_size}/mambafrz_trained.pth", seed=seed, number_of_cnn_layers=10, frz_from_frz_predictor=True, use_linear_restriction=True)
+seed = 8487 # In-Distribution
+context_window_size = 30
+
+#################################
+# EXPERIMENT, Variance=0.0001 ###
+#################################
+# args =  Arguments(moving_window=10, cka_value_cutoff=0.0, stride=3, variance_threshold=0.0001, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_variance_threshold_0001", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
+# main(args)
+
+#################################
+# EXPERIMENT, Moving Window=15 ##
+#################################
+# args =  Arguments(moving_window=15, cka_value_cutoff=0.0, stride=3, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_moving_window_15", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
+# main(args)
+
+#################################
+# EXPERIMENT, Stride=6 ##########
+#################################
+# args =  Arguments(moving_window=10, cka_value_cutoff=0.0, stride=6, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_stride_6", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
+# main(args)
+
+###################################################
+# EXPERIMENT, Moving Window=15, Stride=6 ##########
+###################################################
+args =  Arguments(moving_window=20, cka_value_cutoff=0.3, stride=6, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_stride_6_moving_window_15", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
+main(args)
+
+# args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/sim_guide_train_test_with_cka_threshold_0.3_and_different_ref_model", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
 # main(args)
 
 ################################################
 ###### Generate Data from Different Seeds ######
 ################################################
-num_seeds_to_generate = 5
-for i in range(num_seeds_to_generate):
-    rand_seed = random.randint(0, 10000) # or any seed range you prefer
+# num_seeds_to_generate = 5
+# for i in range(num_seeds_to_generate):
+#     rand_seed = random.randint(0, 10000) # or any seed range you prefer
 
-    # Actual running of the script afterwards
-    args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=rand_seed, number_of_cnn_layers=20)
-    print(f"Running iteration {i+1} with seed {rand_seed}")
-    main(args)
+#     # Actual running of the script afterwards
+#     args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=rand_seed, number_of_cnn_layers=20)
+#     print(f"Running iteration {i+1} with seed {rand_seed}")
+#     main(args)
+
+    
+################################################
+###### Use Same Reference Model for Labels #####
+################################################
+# name_of_experiment_for_seeds = "mambafrz_20_conv_seed_25_experiment"
+# num_seeds_to_use = 5
+# start_index = 4 # Use to start what seeds you want, 0-5, 5-10
+
+# seed_directories = [folder_name for folder_name in os.listdir(name_of_experiment_for_seeds) if "seed" in folder_name]
+# seeds_to_use = seed_directories[start_index*num_seeds_to_use: start_index*num_seeds_to_use + num_seeds_to_use]
+# for seed_index, seed_string in enumerate(seeds_to_use):
+#     match_seed = re.match(r"seed_([0-9]+)", seed_string)
+#     if match_seed:
+#         seed = int(match_seed.group(1))
+#         print(f"Using seed {seed}")
+#     else:
+#         print(f"Failure to parse correct seed index for string {seed_string}")
+#         break
+#     # Actual running of the script afterwards
+#     args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=seed, number_of_cnn_layers=20)
+#     print(f"Running iteration {seed_index+1} with seed {seed}")
+#     main(args)

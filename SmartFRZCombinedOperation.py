@@ -11,6 +11,7 @@ import numpy as np
 import random
 import gc
 import math
+import re
 from torchvision.transforms import v2
 from CKA import CKA
 from utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, WarmUpLR
@@ -65,11 +66,11 @@ def main(args):
   bn_frozen = list()
 
   # Define predictor
-  feature_dim = args.re_size
-  mlp_hid_channel = 256 # Hidden Size for MLP
-  mlp_out_channel = 2 # Output Size, confidence for either freezing or not for MLP
-  ssm_state_expansion_factor = 16 # keep it small for now
-  predictor = initialize_mamba2_predictor(feature_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel)
+  re_size = args.re_size
+  in_channel = re_size
+  hid_channel = 256
+  out_channel = 64
+  predictor = initialize_smartfrz_predictor(in_channel, hid_channel, out_channel)
   predictor_path = args.frz_predictor_path
   predictor.load_state_dict(torch.load(predictor_path, map_location=device))
   predictor = predictor.to(device)
@@ -172,19 +173,28 @@ def main(args):
   set_of_all_layer_names = set()
   counter_for_cnn_layers = args.number_of_cnn_layers
     
+  sampled_indices = np.linspace(0, key - 1, counter_for_cnn_layers).astype(int)
+  current_index_for_indices = 0
+  index_counter_for_cnn_layers = 0
+  
   for name, module in net.named_modules():
     if counter_for_cnn_layers == 0:
       break
     if is_cnn_layer(module):
-      tracker_of_layers_randomly_sampled_input_weights[name] = []
-      tracker_of_cka_values_across_epochs[name] = []
-      cka_freeze_layer_decisions[name] = []
-      cka_freeze_layer_configuration[name] = -1
-      tracker_of_cka_window_values_across_epochs[name] = []
+      if index_counter_for_cnn_layers == sampled_indices[current_index_for_indices]:
+        tracker_of_layers_randomly_sampled_input_weights[name] = []
+        tracker_of_cka_values_across_epochs[name] = []
+        cka_freeze_layer_decisions[name] = []
+        cka_freeze_layer_configuration[name] = -1
+        tracker_of_cka_window_values_across_epochs[name] = []
         
-      set_of_all_layer_names.add(name)
+        set_of_all_layer_names.add(name)
     
-      counter_for_cnn_layers -= 1
+        counter_for_cnn_layers -= 1
+        current_index_for_indices += 1
+      # Always increment index counter
+      index_counter_for_cnn_layers += 1
+  
 
   accuracy_list = []
   training_loss_list = []
@@ -211,8 +221,11 @@ def main(args):
           for layer_index in conv_active:
             sampled_weights = random_sample(conv_layer[layer_index].weight.clone().detach().cpu().reshape(-1).unsqueeze(0), args.re_size)
             conv_active_weights[layer_index].append(sampled_weights)
-            if layer_index == 0:
-              tracker_of_layers_randomly_sampled_input_weights['conv1'].append(sampled_weights.cpu())
+            
+            layer_name = track_conv_frozen[layer_index][0]
+            if layer_name in set_of_all_layer_names:
+                tracker_of_layers_randomly_sampled_input_weights[layer_name].append(sampled_weights.cpu())
+
       ## -----------------------------------------
       ## MAMBAFRZ Code End!
       ## -----------------------------------------
@@ -251,6 +264,10 @@ def main(args):
 
     is_previous_layer_frozen = True
     for model_layer in model_layers:
+      if args.similarity_guided_training:
+        # Already froze layer, no need to compute CKA
+        if cka_freeze_layer_configuration[model_layer] != -1:
+            continue
       print(f"Comparing for {model_layer} at epoch {epoch}")
       cka = CKA(net, fully_trained_reference_model, model1_name=f'ResNet50_{epoch}_Epoch', model2_name='ResNet50_Fully_Trained', model1_layers=[model_layer], model2_layers=[model_layer], device=device)
       with torch.no_grad():
@@ -339,10 +356,9 @@ def main(args):
       for index, weights in enumerate(conv_active_weights[p]):
         if index == 0:
           continue
-        freeze_input = torch.cat((freeze_input, weights), 0)
+        freeze_input = torch.cat((freeze_input, weights), 1)
         if index >= args.window_size - 1:
           break
-      freeze_input = freeze_input.unsqueeze(0)
       freeze_input = freeze_input.to(device)
       # Predict the freezing decision
       pred = predictor(freeze_input)
@@ -353,6 +369,14 @@ def main(args):
         print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
       else:
         track_conv_frozen[p][1].append(0)
+        if args.use_linear_restriction:
+            # Make all subsequent p indices append a 0
+            for extended_p_index, extended_p in enumerate(conv_active):
+                if extended_p_index <= p_index:
+                    continue
+                else:
+                    track_conv_frozen[extended_p][1].append(0)
+            break
     
     # After each epoch, we need to delete the weights contained previously
     del conv_active_weights
@@ -406,7 +430,7 @@ def main(args):
     pickle.dump(track_conv_frozen, f)
 
 class Arguments:
- def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False):
+ def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=False):
   self.epochs = epochs
   self.batch_size = batch_size
   self.seed = seed
@@ -424,24 +448,13 @@ class Arguments:
   self.window_size = window_size
   self.frz_predictor_path = frz_predictor_path
   self.frz_from_frz_predictor = frz_from_frz_predictor
+  self.use_linear_restriction = use_linear_restriction
 
 ################################################
 ##### Validation of New FRZ Predictor      #####
 ################################################
-seed = 0 # Out-of-Distribution
+seed = 8487 # In-Distribution
 context_window_size = 30
-args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_1_conv_seed_100_experiment/validation_of_predictions", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_1_conv_seed_100_experiment/training_data/context_window_{context_window_size}/mambafrz_trained.pth", seed=seed)
+
+args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/SmartFRZ_Predictions", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data/context_window_30/checkpoints/smartfrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=True, use_linear_restriction=True, similarity_guided_training=False)
 main(args)
-
-################################################
-###### Generate Data from Different Seeds ######
-################################################
-# num_seeds_to_generate = 25
-# for i in range(num_seeds_to_generate):
-#     rand_seed = random.randint(0, 10000) # or any seed range you prefer
-    
-
-#     # Actual running of the script afterwards
-#     args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_1_conv_seed_100_experiment", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=rand_seed)
-#     print(f"Running iteration {i+1} with seed {rand_seed}")
-#     main(args)

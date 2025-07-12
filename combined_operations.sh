@@ -1,3 +1,3 @@
 #!/bin/bash
 export PYTHONHASHSEED=1
-python MambaFRZCombinedOperation_20_Conv_Exp_Evenly_Sampled_Layers_UseSameSeedRef.py
+python MambaFRZCombinedOperation_Logit_Threshold.py
