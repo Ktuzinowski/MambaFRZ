@@ -182,22 +182,26 @@ def main(args):
     # Wrap the DataLoader with tqdm
     progress_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False)
     
+    tracker_for_validation_predictions = defaultdict(list)
+    
     with torch.no_grad():
       for inputs, labels in progress_bar:
         layer_names_list = inputs[1]
+        epoch_list = inputs[2]
         inputs, labels = inputs[0].to(device), labels.to(device)
         outputs = predictor(inputs)
         loss = criterion(outputs, labels)
         val_running_loss += loss.item()
         preds = torch.argmax(outputs, dim=1)
             
-        for pred, label, layer_name in zip(preds, labels, layer_names_list):
+        for pred, label, layer_name, epoch_number in zip(preds, labels, layer_names_list, epoch_list):
           if layer_name not in val_correct_by_layer:
             val_correct_by_layer[layer_name] = 0
             val_total_by_layer[layer_name] = 0
           if pred.item() == label.item():
             val_correct_by_layer[layer_name] += 1
             val_total_correct += 1
+          tracker_for_validation_predictions[layer_name].append((epoch_number, pred.item(), label.item()))
           val_total_by_layer[layer_name] += 1
           val_total_num += 1
     val_running_loss /= len(val_loader)
@@ -228,5 +232,5 @@ class Args:
     self.num_epochs = num_epochs
     self.generate_training_data = generate_training_data
 
-args = Args(name_of_experiment="mambafrz_20_conv_seed_25_experiment/training_data_nochangefrz", context_window_size=30, number_of_samples=80000, re_size=1024, num_epochs=10, generate_training_data=True)
+args = Args(name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data", context_window_size=30, number_of_samples=80000, re_size=1024, num_epochs=10, generate_training_data=False)
 main(args)
