@@ -379,12 +379,14 @@ def main(args):
             break
     
     # After each epoch, we need to delete the weights contained previously
+    current_keys = set(conv_active_weights.keys())
     del conv_active_weights
     conv_active_weights = dict()
     key = 0
     for name, layer in net.named_modules():
       if isinstance(layer, torch.nn.Conv2d):
-        conv_active_weights.setdefault(key, list())
+        if key in current_keys:
+            conv_active_weights.setdefault(key, list())
         key += 1
     
     if args.frz_from_frz_predictor:
@@ -456,5 +458,5 @@ class Arguments:
 seed = 8487 # In-Distribution
 context_window_size = 30
 
-args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/SmartFRZ_Predictions", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data/context_window_30/checkpoints/smartfrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=True, use_linear_restriction=True, similarity_guided_training=False)
+args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/SmartFRZ_Predictions_Retrained_Without_Linear_Restriction", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_redo_validation/context_window_30/checkpoints/smartfrz_trained_9.pth", seed=seed, number_of_cnn_layers=0, frz_from_frz_predictor=True, use_linear_restriction=False, similarity_guided_training=False)
 main(args)
