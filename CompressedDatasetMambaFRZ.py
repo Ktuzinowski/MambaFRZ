@@ -22,5 +22,5 @@ class CompressedFreezeDataset(Dataset):
   def __getitem__(self, idx):
     input = self.data[idx]
     output = self.labels[idx]
-
+    
     return (input, self.layer_names[idx], self.epochs[idx], self.seeds[idx]), output
