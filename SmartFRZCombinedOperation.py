@@ -1,5 +1,6 @@
 import os
 import torch
+import argparse
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
@@ -18,6 +19,140 @@ from utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, 
 from MambaFRZ import initialize_mamba2_predictor
 from SmartFRZ import initialize_smartfrz_predictor
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'  # needed for full determinism in some CUDA ops
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generation of Training Data with SmartFRZ Predictor"
+    )
+    
+    parser.add_argument(
+        "--name_of_experiment",
+        type=str,
+        default="experiment",
+        help="Name of Folder for Experiment, Different Seeds Can Be Processed In the Same Way"
+    )
+    
+    parser.add_argument(
+        "--similarity_guided_training",
+        action="store_true",
+        help="Flag for computing CKA"
+    )
+    
+    parser.add_argument(
+        "--frz_from_frz_predictor",
+        action="store_true",
+        help="Use FRZ Predictor to freeze layers during training"
+    )
+    
+    parser.add_argument(
+        "--use_linear_restriction",
+        action="store_true",
+        help="Using the linear restriction to make frz predictions, works for either Similarity-Guided or FRZ predictor"
+    )
+    
+    parser.add_argument(
+        "--window_size",
+        type=int,
+        default=30,
+        help="Context window size for MambaFRZ and SmartFRZ predictors"
+    )
+    
+    parser.add_argument(
+        "--frz_predictor_path",
+        type=str,
+        default="frz_predictor.pt",
+        help="Path to the freeze predictor to use"
+    )
+    
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=160,
+        help="Epochs to train for"
+    )
+    
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=128,
+        help="Batch size to use"
+    )
+    
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Seed to ensure reproducibility for dataset generation"
+    )
+    
+    parser.add_argument(
+        "--warm",
+        type=int,
+        default=10,
+        help="Number of warmup epochs"
+    )
+    
+    parser.add_argument(
+        "--fully_trained_reference_model",
+        type=str,
+        default="best_model.pt",
+        help="Fully Trained Reference Model to Compute CKA with"
+    )
+    
+    parser.add_argument(
+        "--re_size",
+        type=int,
+        default=1024,
+        help="Sampling Size for Layer Weights"
+    )
+    
+    #####################################
+    ###### Similarity-Guided Training ###
+    #####################################
+    parser.add_argument(
+        "--variance_threshold",
+        type=float,
+        default=0.0002,
+        help="Variance threshold for CKA window values, used for Similarity-Guided Training"
+    )
+    
+    parser.add_argument(
+        "--moving_window",
+        type=int,
+        default=20,
+        help="Moving Window in order to compute Variance for CKA Similarity-Guided Training"
+    )
+    
+    parser.add_argument(
+        "--cka_value_cutoff",
+        type=float,
+        default=0.3,
+        help="Cutoff Value for CKA, in Order to Make Sure Low Level Representations Aren't Frozen"
+    )
+    
+    parser.add_argument(
+        "--stride",
+        type=int,
+        default=5,
+        help="Number of CKA values to skip with a stride of 5"
+    )
+    #####################################
+    
+    parser.add_argument(
+        "--cuda_device",
+        type=str,
+        default="cuda",
+        help="Device to compute CKA with"
+    )
+    
+    parser.add_argument(
+        "--number_of_cnn_layers",
+        type=int,
+        default=53,
+        help="Number of CNN layers to compute CKA for"
+    )    
+    
+    args = parser.parse_args()
+    return args
     
 def main(args):
   best_acc = 0.0
@@ -77,8 +212,6 @@ def main(args):
   ## -----------------------------------------
   ## MAMBAFRZ Code End!
   ## -----------------------------------------
-
-
   transforms_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
@@ -431,32 +564,6 @@ def main(args):
   with open(f"{args.name_of_experiment}/seed_{args.seed}/frz_predictor_track_conv_frozen.pkl", "wb") as f:
     pickle.dump(track_conv_frozen, f)
 
-class Arguments:
- def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=False):
-  self.epochs = epochs
-  self.batch_size = batch_size
-  self.seed = seed
-  self.warm = warm
-  self.fully_trained_reference_model = fully_trained_reference_model
-  self.re_size = re_size
-  self.variance_threshold = variance_threshold
-  self.moving_window = moving_window
-  self.cka_value_cutoff = cka_value_cutoff
-  self.stride = stride
-  self.cuda_device = cuda_device
-  self.number_of_cnn_layers = number_of_cnn_layers
-  self.name_of_experiment = name_of_experiment
-  self.similarity_guided_training = similarity_guided_training
-  self.window_size = window_size
-  self.frz_predictor_path = frz_predictor_path
-  self.frz_from_frz_predictor = frz_from_frz_predictor
-  self.use_linear_restriction = use_linear_restriction
-
-################################################
-##### Validation of New FRZ Predictor      #####
-################################################
-seed = 8487 # In-Distribution
-context_window_size = 30
-
-args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/SmartFRZ_Predictions_Retrained_Without_Linear_Restriction", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_redo_validation/context_window_30/checkpoints/smartfrz_trained_9.pth", seed=seed, number_of_cnn_layers=0, frz_from_frz_predictor=True, use_linear_restriction=False, similarity_guided_training=False)
-main(args)
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
