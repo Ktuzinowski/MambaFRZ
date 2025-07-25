@@ -98,8 +98,8 @@ def main(args):
   train_subset = Subset(train_dataset, train_indices)
   val_subset = Subset(train_dataset, val_indices)
     
-  batch_size = 8
-  num_workers = min(8, os.cpu_count() // 4)
+  batch_size = 32
+  num_workers = 0
   train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
   val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
   print(f"Number of batches in Train Loader: {len(train_loader)}")
@@ -214,5 +214,5 @@ class Args:
     self.num_epochs = num_epochs
     self.generate_training_data = generate_training_data
 
-args = Args(name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz", context_window_size=30, number_of_samples=80000, re_size=1024, num_epochs=10, generate_training_data=False)
+args = Args(name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_0.0004_var_thresh", context_window_size=30, number_of_samples=70000, re_size=1024, num_epochs=10, generate_training_data=True)
 main(args)

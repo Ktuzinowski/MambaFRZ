@@ -43,11 +43,15 @@ class Mamba2AttentionModule(nn.Module):
     self.mamba_block = Mamba2Block(feature_dim, ssm_state_expansion_factor, d_conv)
     self.norm = nn.LayerNorm(feature_dim)
     self.output_mlp = MLP(feature_dim, mlp_hid_channel, mlp_out_channel)
+    self.dropout = nn.Dropout(p=0.2)
 
   def forward(self, x):
     # Ensure input is (batch_size, seq_len=30, feature_dim=1024)
+    shortcut = x
+    x = self.norm(x) # Pre-layer normalization
     x = self.mamba_block(x)  # Process sequence with Mamba
-    x = self.norm(x) # Apply Layer Normalization
+    x = self.dropout(x)
+    x = x + shortcut
     x = x.mean(dim=1)
     output = self.output_mlp(x)
     # output = self.output_mlp(x[:, -1, :])  # Use last time step for prediction

@@ -457,64 +457,8 @@ class Arguments:
 seed = 8487 # In-Distribution
 context_window_size = 30
 
-#################################
-# EXPERIMENT, Variance=0.0001 ###
-#################################
-# args =  Arguments(moving_window=10, cka_value_cutoff=0.0, stride=3, variance_threshold=0.0001, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_variance_threshold_0001", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
-# main(args)
-
-#################################
-# EXPERIMENT, Moving Window=15 ##
-#################################
-# args =  Arguments(moving_window=15, cka_value_cutoff=0.0, stride=3, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_moving_window_15", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
-# main(args)
-
-#################################
-# EXPERIMENT, Stride=6 ##########
-#################################
-# args =  Arguments(moving_window=10, cka_value_cutoff=0.0, stride=6, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/lower_threshold_same_seed_ref_stride_6", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
-# main(args)
-
 ###################################################
 # EXPERIMENT, Moving Window=15, Stride=6 ##########
 ###################################################
 args =  Arguments(moving_window=20, cka_value_cutoff=0.3, stride=6, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/out_of_distribution_comparison_with_smartfrz_FINAL", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_redo_validation/context_window_30/checkpoints_exp/retry_mambafrz_trained_9.pth", seed=0, number_of_cnn_layers=0, frz_from_frz_predictor=True, use_linear_restriction=True, similarity_guided_training=False)
 main(args)
-
-# args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/sim_guide_train_test_with_cka_threshold_0.3_and_different_ref_model", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
-# main(args)
-
-################################################
-###### Generate Data from Different Seeds ######
-################################################
-# num_seeds_to_generate = 5
-# for i in range(num_seeds_to_generate):
-#     rand_seed = random.randint(0, 10000) # or any seed range you prefer
-
-#     # Actual running of the script afterwards
-#     args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment", fully_trained_reference_model="test_model_weights/best_model_test.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=rand_seed, number_of_cnn_layers=20)
-#     print(f"Running iteration {i+1} with seed {rand_seed}")
-#     main(args)
-
-    
-################################################
-###### Use Same Reference Model for Labels #####
-################################################
-# name_of_experiment_for_seeds = "mambafrz_20_conv_seed_25_experiment"
-# num_seeds_to_use = 5
-# start_index = 4 # Use to start what seeds you want, 0-5, 5-10
-
-# seed_directories = [folder_name for folder_name in os.listdir(name_of_experiment_for_seeds) if "seed" in folder_name]
-# seeds_to_use = seed_directories[start_index*num_seeds_to_use: start_index*num_seeds_to_use + num_seeds_to_use]
-# for seed_index, seed_string in enumerate(seeds_to_use):
-#     match_seed = re.match(r"seed_([0-9]+)", seed_string)
-#     if match_seed:
-#         seed = int(match_seed.group(1))
-#         print(f"Using seed {seed}")
-#     else:
-#         print(f"Failure to parse correct seed index for string {seed_string}")
-#         break
-#     # Actual running of the script afterwards
-#     args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference", fully_trained_reference_model=f"mambafrz_20_conv_seed_25_experiment/seed_{seed}/best_model.pt", window_size=30, frz_predictor_path="test_model_weights/test_mamba2_context_window_30.pth", seed=seed, number_of_cnn_layers=20)
-#     print(f"Running iteration {seed_index+1} with seed {seed}")
-#     main(args)

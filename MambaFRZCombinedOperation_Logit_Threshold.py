@@ -93,8 +93,8 @@ def main(args):
     transforms.Normalize((0.5070758, 0.4865503, 0.44091913), (0.26733428, 0.25643846, 0.27615047)),
   ])
 
-  trainset = torchvision.datasets.CIFAR100(root='data', train=True, download=True, transform=transforms_train)
-  testset = torchvision.datasets.CIFAR100(root='data', train=False, download=True, transform=transforms_test)
+  trainset = torchvision.datasets.CIFAR10(root='data', train=True, download=True, transform=transforms_train)
+  testset = torchvision.datasets.CIFAR10(root='data', train=False, download=True, transform=transforms_test)
 
   num_classes = 100
   model = resnet50(weights=None)
@@ -465,5 +465,5 @@ class Arguments:
 seed = 8487 # In-Distribution
 context_window_size = 30
 
-args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/threshold_on_mambafrz_logits", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=True, use_linear_restriction=True, similarity_guided_training=False, mambafrz_logit_threshold=0.9)
+args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_cifar10_data_generation", fully_trained_reference_model=f"resnet50_cifar10.pth", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=False, similarity_guided_training=False, mambafrz_logit_threshold=0.7, epochs=100)
 main(args)
