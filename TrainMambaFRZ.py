@@ -127,7 +127,7 @@ def main(args):
   
   num_epochs = args.num_epochs
   
-  model_save_path = f"{root_dir}/checkpoints_exp"
+  model_save_path = f"{root_dir}/{args.checkpoint_folder}"
   os.makedirs(model_save_path, exist_ok=True)
   
   frozen_count = 0
@@ -206,13 +206,14 @@ def main(args):
     
       
 class Args:
-  def __init__(self, name_of_experiment, context_window_size, number_of_samples, re_size=1024, num_epochs=2, generate_training_data=False):
+  def __init__(self, name_of_experiment, context_window_size, number_of_samples, re_size=1024, num_epochs=2, generate_training_data=False, checkpoint_folder="checkpoints"):
     self.context_window_size = context_window_size
     self.name_of_experiment = name_of_experiment
     self.number_of_samples = number_of_samples
     self.re_size = re_size
     self.num_epochs = num_epochs
     self.generate_training_data = generate_training_data
+    self.checkpoint_folder = checkpoint_folder
 
-args = Args(name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_0.0004_var_thresh", context_window_size=30, number_of_samples=70000, re_size=1024, num_epochs=10, generate_training_data=True)
+args = Args(name_of_experiment="mambafrz_vgg11_data_generation_12_seeds/training_data", context_window_size=30, number_of_samples=11000, re_size=1024, num_epochs=10, generate_training_data=True, checkpoint_folder="mambafrz_initial_test")
 main(args)
