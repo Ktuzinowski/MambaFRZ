@@ -25,37 +25,34 @@ class MLP(nn.Module):
     self.linear2 = nn.Linear(num_h, num_h)
     self.relu2 = nn.ReLU()
     self.linear3 = nn.Linear(num_h, num_o)
-    self.dropout = nn.Dropout(0.1)
+    
 
   def forward(self, x):
     x = self.linear1(x)
     x = self.relu(x)
-    x = self.dropout(x)
     x = self.linear2(x)
     x = self.relu2(x)
-    x = self.dropout(x)
     x = self.linear3(x)
     return x
 
 class Mamba2AttentionModule(nn.Module):
-  def __init__(self, feature_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv=2):
+  def __init__(self, feature_dim, projected_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv=2):
     super(Mamba2AttentionModule, self).__init__()
-    self.mamba_block = Mamba2Block(feature_dim, ssm_state_expansion_factor, d_conv)
-    self.norm = nn.LayerNorm(feature_dim)
-    self.output_mlp = MLP(feature_dim, mlp_hid_channel, mlp_out_channel)
-    self.dropout = nn.Dropout(p=0.2)
+    self.mamba_block = Mamba2Block(projected_dim, ssm_state_expansion_factor, d_conv)
+    self.norm = nn.LayerNorm(projected_dim)
+    self.output_mlp = MLP(projected_dim, mlp_hid_channel, mlp_out_channel)
+    self.dropout = nn.Dropout(p=0.3)
+    self.input_proj = nn.Linear(feature_dim, projected_dim)  # 1024 → 512
 
   def forward(self, x):
     # Ensure input is (batch_size, seq_len=30, feature_dim=1024)
-    shortcut = x
-    x = self.norm(x) # Pre-layer normalization
-    x = self.mamba_block(x)  # Process sequence with Mamba
+    x = self.input_proj(x)
+    x = self.mamba_block(x)
+    x = self.norm(x)
     x = self.dropout(x)
-    x = x + shortcut
     x = x.mean(dim=1)
     output = self.output_mlp(x)
-    # output = self.output_mlp(x[:, -1, :])  # Use last time step for prediction
     return output
 
-def initialize_mamba2_predictor(feature_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv=2):
-  return Mamba2AttentionModule(feature_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv)
+def initialize_mamba2_predictor(feature_dim, projected_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv=2):
+  return Mamba2AttentionModule(feature_dim, projected_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel, d_conv)

@@ -5,23 +5,25 @@ import time
 
 def main():
     # --- CONFIGURATION ----------------
-    py_script = "SmartFRZCombinedOperation_VGG11.py"
-    name_of_experiment = "mambafrz_vgg11_data_generation_200_epochs"
+    py_script = "CombinedOperation_VGG11.py"
+    name_of_experiment = "mambafrz_vgg11_MambaFRZ_validation_12_seeds"
     fully_trained_reference_model = f"test_model_weights/best_model_VGG11.pt"
     window_size = 30
-    frz_predictor_path = "mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_redo_validation/context_window_30/checkpoints/smartfrz_trained_9.pth"
-    number_of_cnn_layers = 8
-    frz_from_frz_predictor = False
-    use_linear_restriction = False
+    frz_predictor_path = "/home/idies/workspace/Storage/ktuzinows1/persistent/MambaFRZ/mambafrz_vgg11_data_generation_12_seeds/training_data/context_window_30/mambafrz_architecture_change_test/mambafrz_trained_8.pth"
+    number_of_cnn_layers = 0
+    frz_from_frz_predictor = True
+    use_linear_restriction = True
     similarity_guided_training = False
     save_fully_trained_ref_model = False
     num_epochs = 200
+    frz_predictor_model_name = "mambafrz"
     # ----------------------------------
     
-    number_of_seeds_per_gpu = 3
+    number_of_seeds_per_gpu = 1
     
     num_gpus = torch.cuda.device_count()
-    random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))
+    # random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))
+    random_seeds = [2200]
     max_procs = num_gpus
     
     assert len(random_seeds) == number_of_seeds_per_gpu * num_gpus
@@ -45,7 +47,8 @@ def main():
                 "--fully_trained_reference_model", fully_trained_reference_model,
                 "--number_of_cnn_layers", str(number_of_cnn_layers), 
                 "--cuda_device", f"cuda:{gpu}",
-                "--epochs", str(num_epochs)
+                "--epochs", str(num_epochs),
+                "--frz_predictor_model_name", frz_predictor_model_name
             ]
             if frz_from_frz_predictor:
                 cmd.append("--frz_from_frz_predictor")

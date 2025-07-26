@@ -26,6 +26,13 @@ def parse_args():
     )
     
     parser.add_argument(
+        "--frz_predictor_model_name",
+        type=str,
+        default="smartfrz",
+        help="Name of model architecture to use as a freeze predictor"
+    )
+    
+    parser.add_argument(
         "--name_of_experiment",
         type=str,
         default="experiment",
@@ -203,15 +210,25 @@ def main(args):
   # Store the frozen layers
   conv_frozen = list()
 
-  # Define predictor
-  re_size = args.re_size
-  in_channel = re_size
-  hid_channel = 256
-  out_channel = 64
-  predictor = initialize_smartfrz_predictor(in_channel, hid_channel, out_channel)
-  predictor_path = args.frz_predictor_path
-  predictor.load_state_dict(torch.load(predictor_path, map_location=device))
-  predictor = predictor.to(device)
+  if args.frz_predictor_model_name == "smartfrz":
+        # Define SmartFRZ predictor
+      re_size = args.re_size
+      in_channel = re_size
+      hid_channel = 256
+      out_channel = 64
+      predictor = initialize_smartfrz_predictor(in_channel, hid_channel, out_channel)
+      predictor_path = args.frz_predictor_path
+      predictor.load_state_dict(torch.load(predictor_path, map_location=device))
+      predictor = predictor.to(device)
+  elif args.frz_predictor_model_name == "mambafrz":
+    feature_dim = args.re_size
+    mlp_hid_channel = 512
+    mlp_out_channel = 2
+    ssm_state_expansion_factor = 32
+    projected_dim = feature_dim // 2
+    predictor = initialize_mamba2_predictor(feature_dim=feature_dim, projected_dim=projected_dim, ssm_state_expansion_factor=ssm_state_expansion_factor, mlp_hid_channel=mlp_hid_channel, mlp_out_channel=mlp_out_channel)
+    predictor = predictor.to(device)
+
   ## -----------------------------------------
   ## MAMBAFRZ Code End!
   ## -----------------------------------------
@@ -280,6 +297,8 @@ def main(args):
     random.seed(worker_seed)
 
   num_workers = min(8, os.cpu_count() // 8)  # Use half of available cores
+  if args.frz_predictor_model_name == "mambafrz":
+        num_workers = 0
   trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=seed_worker, generator=g)
   testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=seed_worker, generator=g)
   cka_loader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=True, num_workers=num_workers, drop_last=True)
@@ -473,16 +492,29 @@ def main(args):
     # not going to freeze right now, but later on I will
     conv_freeze_list = []
     for p_index, p in enumerate(conv_active):
-      freeze_input = conv_active_weights[p][0]
-      for index, weights in enumerate(conv_active_weights[p]):
-        if index == 0:
-          continue
-        freeze_input = torch.cat((freeze_input, weights), 1)
-        if index >= args.window_size - 1:
-          break
-      freeze_input = freeze_input.to(device)
-      # Predict the freezing decision
-      pred = predictor(freeze_input)
+      if args.frz_predictor_model_name == "smartfrz":
+        freeze_input = conv_active_weights[p][0]
+        for index, weights in enumerate(conv_active_weights[p]):
+            if index == 0:
+                continue
+            freeze_input = torch.cat((freeze_input, weights), 1)
+            if index >= args.window_size - 1:
+                break
+        freeze_input = freeze_input.to(device)
+        # Predict the freezing decision
+        pred = predictor(freeze_input)
+      elif args.frz_predictor_model_name == "mambafrz":
+        freeze_input = conv_active_weights[p][0]
+        for index, weights in enumerate(conv_active_weights[p]):
+            if index == 0:
+                continue
+            freeze_input = torch.cat((freeze_input, weights), 0)
+            if index >= args.window_size - 1:
+              break
+        freeze_input = freeze_input.unsqueeze(0).to(device)
+        # Predict the freezing decision
+        pred = predictor(freeze_input)
+      print(f"Current Logits for Freze Predictor, Conv# {p}: {pred}")
       prediction_for_freezing = torch.argmax(pred).item()
       if prediction_for_freezing == 1:
         conv_freeze_list.append(p)
