@@ -18,6 +18,7 @@ from CKA import CKA
 from utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
 from MambaFRZ import initialize_mamba2_predictor
 from SmartFRZ import initialize_smartfrz_predictor
+from collections import defaultdict
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'  # needed for full determinism in some CUDA ops
 
 def parse_args():
@@ -119,13 +120,33 @@ def parse_args():
         help="Just generate fully trained reference model without computing CKA"
     )
     
+    parser.add_argument(
+        "--use_post_processing_window",
+        action="store_true",
+        help="Use a window of a certain size to pick a majority decision about whether to freeze or not"
+    )
+    
+    parser.add_argument(
+        "--post_processing_window_size",
+        type=int,
+        default=10,
+        help="Size of window to use as majority decision for post-processing decision making"
+    )
+    
+    parser.add_argument(
+        "--post_processing_percentage_for_frz",
+        type=float,
+        default=0.5,
+        help="Percentage of epochs in post-processing window that have to be frozen to consider a layer to be frozen."
+    )
+    
     #####################################
     ###### Similarity-Guided Training ###
     #####################################
     parser.add_argument(
         "--variance_threshold",
         type=float,
-        default=0.0002,
+        default=0.0001,
         help="Variance threshold for CKA window values, used for Similarity-Guided Training"
     )
     
@@ -228,7 +249,6 @@ def main(args):
     projected_dim = feature_dim // 2
     predictor = initialize_mamba2_predictor(feature_dim=feature_dim, projected_dim=projected_dim, ssm_state_expansion_factor=ssm_state_expansion_factor, mlp_hid_channel=mlp_hid_channel, mlp_out_channel=mlp_out_channel)
     predictor = predictor.to(device)
-
   ## -----------------------------------------
   ## MAMBAFRZ Code End!
   ## -----------------------------------------
@@ -267,6 +287,8 @@ def main(args):
   key = 0
   # Track which convolutional layer has been frozen to measure TFLOPs
   track_conv_frozen = {}
+  if args.use_post_processing_window:
+    frz_decisions_per_layer = defaultdict(list)
   for name, layer in net.named_modules():
     if isinstance(layer, torch.nn.Conv2d):
       key_list.append(key)
@@ -517,12 +539,24 @@ def main(args):
       print(f"Current Logits for Freze Predictor, Conv# {p}: {pred}")
       prediction_for_freezing = torch.argmax(pred).item()
       if prediction_for_freezing == 1:
-        conv_freeze_list.append(p)
+        if not args.use_post_processing_window:
+            conv_freeze_list.append(p)
         track_conv_frozen[p][1].append(1)
-        print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+        if args.use_post_processing_window:
+            frz_decisions_per_layer[p].append(1)
+        if not args.use_post_processing_window:
+            print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+        else:
+            print(f"Layer Decisions for Conv# {p}: {frz_decisions_per_layer[p]}")
       else:
         track_conv_frozen[p][1].append(0)
+        if args.use_post_processing_window:
+            frz_decisions_per_layer[p].append(0)
+            print(f"Layer Decisions for Conv# {p}: {frz_decisions_per_layer[p]}")
         if args.use_linear_restriction:
+            if args.use_post_processing_window:
+                # Do not skip making predictions on layers if we are using a post-processing window
+                continue
             # Make all subsequent p indices append a 0
             for extended_p_index, extended_p in enumerate(conv_active):
                 if extended_p_index <= p_index:
@@ -543,6 +577,21 @@ def main(args):
         key += 1
     
     if args.frz_from_frz_predictor:
+      if args.use_post_processing_window:
+        # Begin making decisions in here
+        for p_index, p in enumerate(conv_active):
+            if len(frz_decisions_per_layer[p]) < args.post_processing_window_size:
+                print(f"Waiting on predictions for Conv# {p}, at length {len(frz_decisions_per_layer[p])}")
+            else:
+                prev_decisions = frz_decisions_per_layer[p][-args.post_processing_window_size:]
+                num_frz_predictions = sum([1 if prev_pred == 1 else 0 for prev_pred in prev_decisions])
+                if num_frz_predictions > args.post_processing_percentage_for_frz * args.post_processing_window_size:
+                    conv_freeze_list.append(p)
+                    print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+                else:
+                    if args.use_linear_restriction:
+                        print(f"Stopped processing future Convs at Conv# {p}")
+                        break
       for i2 in conv_freeze_list:
         conv_frozen.append(i2)  # Record the frozen layer
         conv_active.remove(i2)  # Remove the corresponding entry from the list and dictionary

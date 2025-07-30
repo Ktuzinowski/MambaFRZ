@@ -17,7 +17,7 @@ def main():
     save_fully_trained_ref_model = False
     # ----------------------------------
     
-    number_of_seeds_per_gpu = 1
+    number_of_seeds_per_gpu = 4
     
     num_gpus = torch.cuda.device_count()
     random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))

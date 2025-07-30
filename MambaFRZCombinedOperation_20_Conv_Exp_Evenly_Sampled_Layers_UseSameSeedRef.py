@@ -17,6 +17,7 @@ from CKA import CKA
 from utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, WarmUpLR
 from MambaFRZ import initialize_mamba2_predictor
 from SmartFRZ import initialize_smartfrz_predictor
+from collections import defaultdict
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'  # needed for full determinism in some CUDA ops
     
 def main(args):
@@ -67,10 +68,11 @@ def main(args):
 
   # Define predictor
   feature_dim = args.re_size
-  mlp_hid_channel = 256 # Hidden Size for MLP
-  mlp_out_channel = 2 # Output Size, confidence for either freezing or not for MLP
-  ssm_state_expansion_factor = 16 # keep it small for now
-  predictor = initialize_mamba2_predictor(feature_dim, ssm_state_expansion_factor, mlp_hid_channel, mlp_out_channel)
+  mlp_hid_channel = 512
+  mlp_out_channel = 2
+  ssm_state_expansion_factor = 32
+  projected_dim = feature_dim // 2
+  predictor = initialize_mamba2_predictor(feature_dim=feature_dim, projected_dim=projected_dim, ssm_state_expansion_factor=ssm_state_expansion_factor, mlp_hid_channel=mlp_hid_channel, mlp_out_channel=mlp_out_channel)
   predictor_path = args.frz_predictor_path
   predictor.load_state_dict(torch.load(predictor_path, map_location=device))
   predictor = predictor.to(device)
@@ -122,6 +124,8 @@ def main(args):
   key = 0
   # Track which convolutional layer has been frozen to measure TFLOPs
   track_conv_frozen = {}
+  if args.use_post_processing_window:
+    frz_decisions_per_layer = defaultdict(list)
   for name, layer in net.named_modules():
     if isinstance(layer, torch.nn.Conv2d):
       key_list.append(key)
@@ -365,12 +369,24 @@ def main(args):
       pred = predictor(freeze_input)
       prediction_for_freezing = torch.argmax(pred).item()
       if prediction_for_freezing == 1:
-        conv_freeze_list.append(p)
+        if not args.use_post_processing_window:
+            conv_freeze_list.append(p)
         track_conv_frozen[p][1].append(1)
-        print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+        if args.use_post_processing_window:
+            frz_decisions_per_layer[p].append(1)
+        if not args.use_post_processing_window:
+            print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+        else:
+            print(f"Layer Decisions for Conv# {p}: {frz_decisions_per_layer[p]}")
       else:
         track_conv_frozen[p][1].append(0)
+        if args.use_post_processing_window:
+            frz_decisions_per_layer[p].append(0)
+            print(f"Layer Decisions for Conv# {p}: {frz_decisions_per_layer[p]}")
         if args.use_linear_restriction:
+            if args.use_post_processing_window:
+                # Do not skip making predictions on layers if we are using a post-processing window
+                continue
             # Make all subsequent p indices append a 0
             for extended_p_index, extended_p in enumerate(conv_active):
                 if extended_p_index <= p_index:
@@ -389,6 +405,21 @@ def main(args):
         key += 1
     
     if args.frz_from_frz_predictor:
+      if args.use_post_processing_window:
+        # Begin making decisions in here
+        for p_index, p in enumerate(conv_active):
+            if len(frz_decisions_per_layer[p]) < args.post_processing_window_size:
+                print(f"Waiting on predictions for Conv# {p}, at length {len(frz_decisions_per_layer[p])}")
+            else:
+                prev_decisions = frz_decisions_per_layer[p][-args.post_processing_window_size:]
+                num_frz_predictions = sum([1 if prev_pred == 1 else 0 for prev_pred in prev_decisions])
+                if num_frz_predictions > args.post_processing_percentage_for_frz * args.post_processing_window_size:
+                    conv_freeze_list.append(p)
+                    print(f"Layer {track_conv_frozen[p][0]} frz predictor at epoch {epoch}, conv # {p}")
+                else:
+                    if args.use_linear_restriction:
+                        # did not freeze layer, do not make a decision about the next one
+                        break
       bn_freeze_list = conv_freeze_list.copy()
       for i2 in conv_freeze_list:
         conv_frozen.append(i2)  # Record the frozen layer
@@ -431,7 +462,9 @@ def main(args):
     pickle.dump(track_conv_frozen, f)
 
 class Arguments:
- def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=False):
+ def __init__(self, epochs=160, batch_size=128, seed=1, warm=10, fully_trained_reference_model="best_model.pt", re_size=1024, variance_threshold=0.0002, moving_window=20, cka_value_cutoff=0.3, stride=5, cuda_device="cuda:0", number_of_cnn_layers=1, name_of_experiment="experiment", similarity_guided_training=False, window_size=30, frz_predictor_path="frz_predictor.pt", frz_from_frz_predictor=False, use_linear_restriction=False, use_post_processing_window=False,
+             post_processing_window_size=10,
+             post_processing_percentage_for_frz=0.5):
   self.epochs = epochs
   self.batch_size = batch_size
   self.seed = seed
@@ -450,6 +483,10 @@ class Arguments:
   self.frz_predictor_path = frz_predictor_path
   self.frz_from_frz_predictor = frz_from_frz_predictor
   self.use_linear_restriction = use_linear_restriction
+  self.use_post_processing_window = use_post_processing_window
+  self.post_processing_window_size = post_processing_window_size
+  self.post_processing_percentage_for_frz = post_processing_percentage_for_frz
+
 
 ################################################
 ##### Validation of New FRZ Predictor      #####
@@ -461,9 +498,15 @@ context_window_size = 30
 # Similarity-Guided Training
 # Same-Seed Ref: 82.41% acc,  177,512 TFLOPs
 # Diff-Seed Ref: 82.72% acc, 
+use_post_processing_window = True
+post_processing_window_size = 10
+post_processing_percentage_for_frz = 0.5
 
-# args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_20_conv_seed_25_experiment_same_seed_reference/sim_guide_train_test_with_cka_threshold_0.3_and_different_ref_model", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_20_conv_seed_25_experiment_same_seed_reference/training_data_nochangefrz/context_window_30/checkpoints/mambafrz_trained_9.pth", seed=seed, number_of_cnn_layers=53, frz_from_frz_predictor=False, use_linear_restriction=True, similarity_guided_training=True)
-# main(args)
+args = Arguments(moving_window=20, cka_value_cutoff=0.3, stride=5, variance_threshold=0.0002, cuda_device="cuda:0", name_of_experiment="mambafrz_vgg11_used_on_resnet50_cifar100", fully_trained_reference_model=f"test_model_weights/best_model_test.pt", window_size=context_window_size, frz_predictor_path=f"mambafrz_vgg11_data_generation_12_seeds/training_data_more_data/context_window_30/mambafrz_small_test/mambafrz_9.pth", seed=seed, number_of_cnn_layers=0, frz_from_frz_predictor=True, use_linear_restriction=True, similarity_guided_training=False,
+                use_post_processing_window=use_post_processing_window,
+                post_processing_window_size=post_processing_window_size,
+                post_processing_percentage_for_frz=post_processing_percentage_for_frz)
+main(args)
 
 ################################################
 ###### Generate Data from Different Seeds ######

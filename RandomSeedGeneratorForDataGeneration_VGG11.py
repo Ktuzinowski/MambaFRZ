@@ -6,24 +6,27 @@ import time
 def main():
     # --- CONFIGURATION ----------------
     py_script = "CombinedOperation_VGG11.py"
-    name_of_experiment = "mambafrz_vgg11_MambaFRZ_validation_12_seeds"
+    name_of_experiment = "mambafrz_vgg11_MambaFRZ_validation_test_7_30"
     fully_trained_reference_model = f"test_model_weights/best_model_VGG11.pt"
     window_size = 30
-    frz_predictor_path = "/home/idies/workspace/Storage/ktuzinows1/persistent/MambaFRZ/mambafrz_vgg11_data_generation_12_seeds/training_data/context_window_30/mambafrz_architecture_change_test/mambafrz_trained_8.pth"
+    frz_predictor_path = "mambafrz_vgg11_data_generation_12_seeds/training_data_more_data/context_window_30/mambafrz_small_test/mambafrz_9.pth"
     number_of_cnn_layers = 0
     frz_from_frz_predictor = True
     use_linear_restriction = True
     similarity_guided_training = False
     save_fully_trained_ref_model = False
-    num_epochs = 200
+    use_post_processing_window = True
+    post_processing_window_size = 10
+    post_processing_percentage_for_frz = 0.5
+    num_epochs = 160
     frz_predictor_model_name = "mambafrz"
+    variance_threshold = 0.0001
     # ----------------------------------
     
     number_of_seeds_per_gpu = 1
     
     num_gpus = torch.cuda.device_count()
-    # random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))
-    random_seeds = [2200]
+    random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))
     max_procs = num_gpus
     
     assert len(random_seeds) == number_of_seeds_per_gpu * num_gpus
@@ -48,7 +51,10 @@ def main():
                 "--number_of_cnn_layers", str(number_of_cnn_layers), 
                 "--cuda_device", f"cuda:{gpu}",
                 "--epochs", str(num_epochs),
-                "--frz_predictor_model_name", frz_predictor_model_name
+                "--frz_predictor_model_name", frz_predictor_model_name,
+                "--post_processing_window_size", str(post_processing_window_size),
+                "--post_processing_percentage_for_frz", str(post_processing_percentage_for_frz),
+                "--variance_threshold", str(variance_threshold)
             ]
             if frz_from_frz_predictor:
                 cmd.append("--frz_from_frz_predictor")
@@ -58,6 +64,8 @@ def main():
                 cmd.append("--similarity_guided_training")
             if save_fully_trained_ref_model:
                 cmd.append("--save_fully_trained_ref_model")
+            if use_post_processing_window:
+                cmd.append("--use_post_processing_window")
             
             print(f"→ Launching seed={seed} on GPU {gpu}")
             p = subprocess.Popen(cmd)
