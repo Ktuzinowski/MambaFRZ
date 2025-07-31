@@ -10,7 +10,7 @@ def main():
     fully_trained_reference_model = f"test_model_weights/best_model_VGG11.pt"
     window_size = 30
     frz_predictor_path = "mambafrz_vgg11_data_generation_12_seeds/training_data_more_data/context_window_30/mambafrz_small_test/mambafrz_9.pth"
-    number_of_cnn_layers = 0
+    number_of_cnn_layers = 8
     frz_from_frz_predictor = True
     use_linear_restriction = True
     similarity_guided_training = False
