@@ -27,6 +27,7 @@ share/python-wheels/
 MANIFEST
 
 # MambaFRZ Exclusive
+*_dataset
 mambafrz_*
 data
 test_model_weights

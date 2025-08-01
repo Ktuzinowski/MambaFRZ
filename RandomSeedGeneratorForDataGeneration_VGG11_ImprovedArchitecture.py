@@ -5,17 +5,17 @@ import time
 
 def main():
     # --- CONFIGURATION ----------------
-    py_script = "CombinedOperation_VGG11.py"
-    name_of_experiment = "mambafrz_vgg11_SmartFRZ_validation_test_7_30"
-    fully_trained_reference_model = f"test_model_weights/best_model_VGG11.pt"
+    py_script = "CombinedOperation_VGG11_Improved.py"
+    name_of_experiment = "mambafrz_vgg11_bn_improved_architecture"
+    fully_trained_reference_model = f"test_model_weights/best_model_VGG11_BN.pt"
     window_size = 30
     frz_predictor_path = "mambafrz_vgg11_data_generation_12_seeds/training_data_more_data/context_window_30/smartfrz_small_test/smartfrz_9.pth"
     number_of_cnn_layers = 8
-    frz_from_frz_predictor = True
-    use_linear_restriction = True
+    frz_from_frz_predictor = False
+    use_linear_restriction = False
     similarity_guided_training = False
     save_fully_trained_ref_model = False
-    use_post_processing_window = True
+    use_post_processing_window = False
     post_processing_window_size = 10
     post_processing_percentage_for_frz = 0.5
     num_epochs = 200
@@ -23,7 +23,7 @@ def main():
     variance_threshold = 0.0001
     # ----------------------------------
     
-    number_of_seeds_per_gpu = 1
+    number_of_seeds_per_gpu = 3
     
     num_gpus = torch.cuda.device_count()
     random_seeds = list(set(random.randint(0, 10000) for _ in range(number_of_seeds_per_gpu * num_gpus)))
