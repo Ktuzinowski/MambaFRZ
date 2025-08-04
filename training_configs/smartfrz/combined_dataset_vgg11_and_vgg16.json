@@ -1,6 +1,6 @@
 {
     "frz_experiments_to_use": ["frz_predictor_training_dataset/cifar100/vgg16/data_generation/training_data", "frz_predictor_training_dataset/cifar100/vgg11/data_generation/training_data_more_data_times_three"],
-    "frz_experiments_generate_training_data": [true, true],
+    "frz_experiments_generate_training_data": [false, false],
     "context_window_size": 30,
     "re_size": 1024,
     "num_epochs": 10,
@@ -19,7 +19,7 @@
     "root_folder_to_save_checkpoints": "training_frz_predictors/combined_dataset_vgg11_and_vgg16",
     "checkpoint_folder": "small_test",
     "frz_predictor_type": "smartfrz",
-    "use_pretrained_model": true,
+    "use_pretrained_model": false,
     "use_pretrained_model_path": "frz_predictor_training_dataset/cifar100/vgg11/data_generation/training_data_more_data_times_three/context_window_30/smartfrz_from_scratch/smartfrz_9.pth",
     "percentage_of_seeds_for_validation": 0.2,
     "number_of_seeds_to_plot": 2,
