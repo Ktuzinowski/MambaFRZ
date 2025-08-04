@@ -68,7 +68,7 @@ def parse_args():
     parser.add_argument(
         "--frz_predictor_path",
         type=str,
-        default="frz_predictor.pt",
+        default=None,
         help="Path to the freeze predictor to use"
     )
     

@@ -7,7 +7,7 @@ def main():
     # --- CONFIGURATION ----------------
     py_script = "CombinedOperation_VGG11_Improved.py"
     name_of_experiment = "mambafrz_vgg11_bn_improved_architecture"
-    fully_trained_reference_model = f"test_model_weights/best_model_VGG11_BN.pt"
+    fully_trained_reference_model = f"test_fully_trained_model_weights/vgg11_bn_cifar100.pt"
     window_size = 30
     frz_predictor_path = None
     number_of_cnn_layers = 8
@@ -45,7 +45,6 @@ def main():
                 "python", py_script,
                 "--name_of_experiment", name_of_experiment,
                 "--window_size", str(window_size),
-                "--frz_predictor_path", frz_predictor_path,
                 "--seed", str(seed),
                 "--fully_trained_reference_model", fully_trained_reference_model,
                 "--number_of_cnn_layers", str(number_of_cnn_layers), 
@@ -58,6 +57,8 @@ def main():
             ]
             if frz_from_frz_predictor:
                 cmd.append("--frz_from_frz_predictor")
+            if frz_predictor_path:
+                cmd.append("--frz_predictor_path", frz_predictor_path)
             if use_linear_restriction:
                 cmd.append("--use_linear_restriction")
             if similarity_guided_training:
