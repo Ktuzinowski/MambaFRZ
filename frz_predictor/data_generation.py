@@ -44,8 +44,8 @@ def generate_formatted_data(frz_predictor_type, file_list, dataset_file, folder_
         else:
           dataset_file['labels'].append(0)
 
-def generate_compressed_dataset(root_dir, total_count, frz_predictor_type):
-  compressed_dataset_file = {
+def generate_frz_training_dataset(root_dir, total_count, frz_predictor_type):
+  dataset_file = {
     'data': [],
     'labels': []
   }
@@ -53,6 +53,6 @@ def generate_compressed_dataset(root_dir, total_count, frz_predictor_type):
   for subfolder in ['frz', 'nofrz']:
     pickle_folder_location = os.path.join(root_dir, subfolder)
     file_list = os.listdir(pickle_folder_location)
-    generate_formatted_data(frz_predictor_type, file_list, compressed_dataset_file, pickle_folder_location, subfolder, total_count)
-  with open(f"{root_dir}/compressed_dataset_{frz_predictor_type}.pkl", "wb") as f:
-    pickle.dump(compressed_dataset_file, f)
+    generate_formatted_data(frz_predictor_type, file_list, dataset_file, pickle_folder_location, subfolder, total_count)
+  with open(f"{root_dir}/dataset_{frz_predictor_type}.pkl", "wb") as f:
+    pickle.dump(dataset_file, f)

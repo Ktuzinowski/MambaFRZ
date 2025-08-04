@@ -2,8 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import pickle
 
-# Compressed Dataset Definition
-class CompressedFreezeDataset(Dataset):
+class FreezeDataset(Dataset):
   def __init__(self, pt_file_loc, frz_predictor_type):
     super().__init__()
     with open(pt_file_loc, "rb") as f:

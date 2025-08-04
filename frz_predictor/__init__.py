@@ -1,2 +1,4 @@
 from .SmartFRZ import initialize_smartfrz_predictor
 from .MambaFRZ import initialize_mamba2_predictor
+from .data_generation import generate_frz_training_dataset
+from .FreezeDataset import FreezeDataset
