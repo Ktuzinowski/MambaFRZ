@@ -14,7 +14,7 @@ import gc
 import math
 import re
 from torchvision.transforms import v2
-from CKA import CKA
+from cka import CKA
 from utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
 from MambaFRZ import initialize_mamba2_predictor
 from SmartFRZ import initialize_smartfrz_predictor
@@ -238,8 +238,9 @@ def main(args):
       hid_channel = 256
       out_channel = 64
       predictor = initialize_smartfrz_predictor(in_channel, hid_channel, out_channel)
-      predictor_path = args.frz_predictor_path
-      predictor.load_state_dict(torch.load(predictor_path, map_location=device))
+      if args.frz_predictor_path:
+        predictor_path = args.frz_predictor_path
+        predictor.load_state_dict(torch.load(predictor_path, map_location=device))
       predictor = predictor.to(device)
   elif args.frz_predictor_model_name == "mambafrz":
     feature_dim = args.re_size
@@ -248,6 +249,9 @@ def main(args):
     ssm_state_expansion_factor = 32
     projected_dim = feature_dim // 2
     predictor = initialize_mamba2_predictor(feature_dim=feature_dim, projected_dim=projected_dim, ssm_state_expansion_factor=ssm_state_expansion_factor, mlp_hid_channel=mlp_hid_channel, mlp_out_channel=mlp_out_channel)
+    if args.frz_predictor_path:
+        predictor_path = args.frz_predictor_path
+        predictor.load_state_dict(torch.load(predictor_path, map_location=device))
     predictor = predictor.to(device)
   ## -----------------------------------------
   ## MAMBAFRZ Code End!

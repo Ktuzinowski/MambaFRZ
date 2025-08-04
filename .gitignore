@@ -31,6 +31,7 @@ MANIFEST
 mambafrz_*
 data
 test_model_weights
+test_fully_trained_model_weights
 cifar10
 data
 # PyInstaller

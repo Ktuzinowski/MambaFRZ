@@ -9,7 +9,7 @@ def main():
     name_of_experiment = "mambafrz_vgg11_bn_improved_architecture"
     fully_trained_reference_model = f"test_model_weights/best_model_VGG11_BN.pt"
     window_size = 30
-    frz_predictor_path = "mambafrz_vgg11_data_generation_12_seeds/training_data_more_data/context_window_30/smartfrz_small_test/smartfrz_9.pth"
+    frz_predictor_path = None
     number_of_cnn_layers = 8
     frz_from_frz_predictor = False
     use_linear_restriction = False

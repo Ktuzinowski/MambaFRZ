@@ -122,10 +122,11 @@ class CKA:
         result += ((ones.t() @ K @ ones @ ones.t() @ L @ ones) / ((N - 1) * (N - 2))).item()
         result -= ((ones.t() @ K @ L @ ones) * 2 / (N - 2)).item()
         return (1 / (N * (N - 3)) * result).item()
+    
     def compare(self,
                 dataloader1: DataLoader,
                 dataloader2: DataLoader = None,
-                num_times_iterate_over_test_dataset=1) -> None:
+                num_times_iterate_over_test_dataset=1, percentage_of_batches=0.25) -> None:
         """
         Computes the feature similarity between the models on the
         given datasets.
@@ -144,11 +145,11 @@ class CKA:
 
         self.hsic_matrix = torch.zeros(N, M, 3, device="cpu")
 
-        # num_batches = min(len(dataloader1), len(dataloader2)) * num_times_iterate_over_test_dataset
-        num_batches = 10  # only want to go through 10 batches this time
-        # print(f"Total number of batches in use: {num_batches}")
+        num_batches = min(len(dataloader1), len(dataloader2)) * num_times_iterate_over_test_dataset
+        num_batches = int(num_batches * percentage_of_batches)
+        print(f"Total number of batches in use: {num_batches}")
 
-        smaller_total = 10 # Reduce number of batches processed, boring to wait
+        smaller_total = num_batches
 
         for _ in range(num_times_iterate_over_test_dataset):
           for (x1, *_) in tqdm.tqdm(dataloader1, desc="| Comparing features |", total=smaller_total):
@@ -227,8 +228,6 @@ class CKA:
         plt.show()
 
     def __del__(self):
-      # print("Deleting CKA object and freeing memory...")
-
       # Removing handles
       for handle in self.hook_handles:
         handle.remove()
