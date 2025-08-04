@@ -1,0 +1,2 @@
+from .SmartFRZ import initialize_smartfrz_predictor
+from .MambaFRZ import initialize_mamba2_predictor
