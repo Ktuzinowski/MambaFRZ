@@ -15,9 +15,8 @@ import math
 import re
 from torchvision.transforms import v2
 from cka import CKA
-from utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
-from MambaFRZ import initialize_mamba2_predictor
-from SmartFRZ import initialize_smartfrz_predictor
+from models.utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
+from frz_predictor import initialize_mamba2_predictor, initialize_smartfrz_predictor
 from collections import defaultdict
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'  # needed for full determinism in some CUDA ops
 
