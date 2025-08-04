@@ -1,13 +1,13 @@
 {
     "frz_experiments_to_use": ["frz_predictor_training_dataset/cifar100/vgg16/data_generation/training_data", "frz_predictor_training_dataset/cifar100/vgg11/data_generation/training_data_more_data_times_three"],
-    "frz_experiments_generate_training_data": [false, false],
+    "frz_experiments_generate_training_data": [true, true],
     "context_window_size": 30,
     "re_size": 1024,
     "num_epochs": 10,
     "batch_size": 32,
     "label_smoothing": 0.2,
     "lr": 0.001,
-    "lr_finetuning": 0.00001,
+    "lr_finetuning": 0.0001,
     "weight_decay": 0.00001,
     "scheduler_mode": "min",
     "scheduler_factor": 0.5,
@@ -18,18 +18,16 @@
     "seed": 1234,
     "root_folder_to_save_checkpoints": "training_frz_predictors/combined_dataset_vgg11_and_vgg16",
     "checkpoint_folder": "small_test",
-    "frz_predictor_type": "mambafrz",
+    "frz_predictor_type": "smartfrz",
     "use_pretrained_model": true,
-    "use_pretrained_model_path": "frz_predictor_training_dataset/cifar100/vgg11/data_generation/training_data_more_data_times_three/context_window_30/mambafrz_from_scratch/mambafrz_9.pth",
+    "use_pretrained_model_path": "frz_predictor_training_dataset/cifar100/vgg11/data_generation/training_data_more_data_times_three/context_window_30/smartfrz_from_scratch/smartfrz_9.pth",
     "percentage_of_seeds_for_validation": 0.2,
     "number_of_seeds_to_plot": 2,
     "display_model_summary": false,
     "frz_predictor_config": {
-        "feature_dim": 1024,
-        "mlp_hid_channel": 512,
-        "mlp_out_channel": 2,
-        "ssm_state_expansion_factor": 32,
-        "projected_dim": 512
+        "in_channel": 1024,
+        "hid_channel": 256,
+        "out_channel": 64
     },
     "folder_for_plotting": "figures"
 }

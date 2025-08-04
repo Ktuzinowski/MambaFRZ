@@ -2,17 +2,22 @@ import torch
 import os
 import pickle
 import re
+from tqdm import tqdm
 
-def generate_formatted_data(frz_predictor_type, file_list, dataset_file, folder_location, subfolder, total_count):
+def generate_formatted_data(frz_predictor_type, file_list, dataset_file, folder_location, subfolder):
   counter = 0
+  total_count = len(file_list)
 
   # Pattern for extracting Layer Name, Epoch, and Seed
   pattern = r"layer_([^_]*)_epoch_(\d*)_(\d*)"
-
-  for filename in file_list:
+    
+  progress_bar = tqdm(file_list, leave=False)
+  progress_bar.set_description(f"Processing {folder_location}")
+  
+  for filename in progress_bar:
     if filename.endswith('.pkl'):
       counter += 1
-      print(filename, f"{counter}/{total_count}")
+      
       with open(os.path.join(folder_location, filename), "rb") as f:
         tensor_data = pickle.load(f)
         freeze_input = tensor_data[0]
@@ -44,7 +49,7 @@ def generate_formatted_data(frz_predictor_type, file_list, dataset_file, folder_
         else:
           dataset_file['labels'].append(0)
 
-def generate_frz_training_dataset(root_dir, total_count, frz_predictor_type):
+def generate_frz_training_dataset(root_dir, frz_predictor_type):
   dataset_file = {
     'data': [],
     'labels': []
@@ -53,6 +58,6 @@ def generate_frz_training_dataset(root_dir, total_count, frz_predictor_type):
   for subfolder in ['frz', 'nofrz']:
     pickle_folder_location = os.path.join(root_dir, subfolder)
     file_list = os.listdir(pickle_folder_location)
-    generate_formatted_data(frz_predictor_type, file_list, dataset_file, pickle_folder_location, subfolder, total_count)
+    generate_formatted_data(frz_predictor_type, file_list, dataset_file, pickle_folder_location, subfolder)
   with open(f"{root_dir}/dataset_{frz_predictor_type}.pkl", "wb") as f:
     pickle.dump(dataset_file, f)
