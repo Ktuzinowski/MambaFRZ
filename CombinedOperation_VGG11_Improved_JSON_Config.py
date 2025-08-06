@@ -14,7 +14,7 @@ import math
 import re
 from torchvision.transforms import v2
 from cka import CKA
-from models.utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
+from models.utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, WarmUpLR
 from models.datasets import get_dataloaders_for_dataset
 from frz_predictor import initialize_mamba2_predictor, initialize_smartfrz_predictor
 from collections import defaultdict
@@ -88,18 +88,22 @@ def main(config):
   key_list = list()
   # The active layers
   conv_active = list()
+  bn_active = list()
 
   # Store the layers
   conv_layer = list()
+  bn_layer = list()
 
   # Store the frozen parameters
   conv_layer_param = dict()
+  bn_layer_param = dict()
 
   # Store the weights for freezing prediction
   conv_active_weights = dict()
 
   # Store the frozen layers
   conv_frozen = list()
+  bn_frozen = list()
 
   frz_predictor_config = config["frz_predictor_config"]
 
@@ -139,8 +143,9 @@ def main(config):
   for name, layer in net.named_modules():
     if isinstance(layer, torch.nn.Conv2d):
       conv_layer.append(layer)
-
-  # Prepare key data structure needed for calculating CKA
+    elif isinstance(layer, torch.nn.BatchNorm2d):
+      bn_layer.append(layer)
+    
   key = 0
   # Track which convolutional layer has been frozen to measure TFLOPs
   track_conv_frozen = {}
@@ -154,6 +159,7 @@ def main(config):
       conv_active_weights.setdefault(key, list())
       track_conv_frozen.setdefault(key, [name, []])
       conv_active.append(key)
+      bn_active.append(key)
       key += 1
   
   if not save_fully_trained_ref_model:
@@ -331,6 +337,11 @@ def main(config):
                     module.weight.requires_grad = False
                     if hasattr(module, 'bias') and module.bias is not None:
                       module.bias.requires_grad = False
+                  elif is_bn_layer(module) and froze_cnn:
+                    print("FROZE CORRESPONDING BN LAYER!")
+                    module.weight.requires_grad = False
+                    if hasattr(module, 'bias') and module.bias is not None:
+                        module.bias.requires_grad = False
                     break
             else:
               is_previous_layer_frozen = False
@@ -451,6 +462,8 @@ def main(config):
                     if use_linear_restriction_for_layer_freezing:
                         print(f"Post-Processing: Stopped processing at Conv# {p}")
                         break
+      
+      bn_freeze_list = conv_freeze_list.copy()
 
       for i2 in conv_freeze_list:
         conv_frozen.append(i2)  # Record the frozen layer
@@ -460,6 +473,15 @@ def main(config):
           params.requires_grad = False
           conv_layer_param.setdefault(i2, list())
           conv_layer_param[i2].append(params.data.clone().detach())
+      
+      # Check to see that the network architecture does have BN layers
+      if len(bn_layer) != 0:
+        for i2 in bn_freeze_list:
+          bn_frozen.append(i2)
+          for params in bn_layer[i2].parameters():
+            params.requires_grad = False
+            bn_layer_param.setdefault(i2, list())
+            bn_layer_param[i2].append(params.data.clone().detach())
 
     if accuracy > best_acc:
       checkpoint = net.state_dict()
@@ -493,7 +515,7 @@ if __name__ == "__main__":
         print("Configuration file not found.")
     except json.JSONDecodeError as e:
         print(f"Invalid Configuration for JSON: {e}")
-    print(config)
+
     config["device"] = args.device
     config["seed"] = args.seed
 

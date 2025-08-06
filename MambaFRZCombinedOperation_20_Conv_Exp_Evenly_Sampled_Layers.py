@@ -116,7 +116,8 @@ def main(args):
     if isinstance(layer, torch.nn.Conv2d):
       conv_layer.append(layer)
     elif isinstance(layer, torch.nn.BatchNorm2d):
-      bn_layer.append(layer)
+      
+    _layer.append(layer)
   # Prepare key data structure needed for calculating CKA
   key = 0
   # Track which convolutional layer has been frozen to measure TFLOPs

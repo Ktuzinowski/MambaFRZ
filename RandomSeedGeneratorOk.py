@@ -5,7 +5,7 @@ import time
 
 def main():
     py_script = "CombinedOperation_VGG11_Improved_JSON_Config.py"
-    configuration_file = "training_configs/vgg11_bn_cifar100/fully_trained_reference_model.json"
+    configuration_file = "training_configs/vgg11_bn_cifar100/similarity_guided_training.json"
     
     number_of_seeds_per_gpu = 1
     
