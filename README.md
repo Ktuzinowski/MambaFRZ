@@ -12,7 +12,7 @@ Freeze prediction with Mamba-based predictor. Generation of freeze training data
 ├── 📁 models/ — Models (e.g., ResNet50, VGG11) used for data generation  
 ├── 📁 test_fully_trained_model_weights/ — (Git-ignored) Weights used in CKA computation and freeze prediction  
 ├── 📁 training_configs/ — JSON config files for experiments  
-├── 📁 training_frz_predictors/ — Trained weights for MambaFRZ and SmartFRZ  
+├── 📁 training_frz_predictors/ — (Git-ignored) Trained weights for MambaFRZ and SmartFRZ  
 ├── 📊 ComparePredictionsWithCKALabels.ipynb — Compare predictions with CKA values and curves  
 ├── 📊 CompareExperimentResults.ipynb — Compare experiment metrics with visualizations  
 ├── 📊 CreateTrainingLabelsForFrzDataset.ipynb — Generate labels for FRZ dataset using CKA  
