@@ -6,7 +6,7 @@ Freeze prediction with Mamba-based predictor. Generation of freeze training data
 ```text
 📁 MambaFRZ/
 ├── 📁 cka/ — Library containing code for computing CKA  
-├── 📁 data/ — Data for training models on datasets like CIFAR10/CIFAR100  
+├── 📁 data/ — (Git-ignored) Data for training models on datasets like CIFAR10/CIFAR100  
 ├── 📁 frz_predictor/ — MambaFRZ and SmartFRZ predictors, FRZ dataset generation  
 ├── 📁 frz_predictor_training_dataset/ — (Git-ignored) Sampled weights and layer labels for training predictors  
 ├── 📁 models/ — Models (e.g., ResNet50, VGG11) used for data generation  
