@@ -1,9 +1,9 @@
 {
-    "model_name": "vgg11_bn",
-    "name_of_experiment": "frz_predictor_training_dataset/cifar100/vgg11_bn/dataset_generation",
+    "model_name": "vgg11",
+    "name_of_experiment": "frz_predictor_training_dataset/cifar100/vgg11/dataset_generation",
     "dataset_name": "cifar100",
     "save_fully_trained_ref_model": false,
-    "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg11_bn_cifar100.pt",
+    "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg11_cifar100.pt",
 
     "use_linear_restriction_for_layer_freezing": true,
 

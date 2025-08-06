@@ -1,25 +1,24 @@
 {
-    "model_name": "vgg11_bn",
-    "name_of_experiment": "frz_predictor_training_dataset/cifar100/vgg11_bn/dataset_generation",
+    "model_name": "resnet50",
     "dataset_name": "cifar100",
     "save_fully_trained_ref_model": false,
-    "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg11_bn_cifar100.pt",
+    "fully_trained_ref_model_path": "test_fully_trained_model_weights/resnet50_cifar100.pt",
 
     "use_linear_restriction_for_layer_freezing": true,
 
-    "use_predictions_from_frz_predictor_to_frz_layers": false,
+    "use_predictions_from_frz_predictor_to_frz_layers": true,
     
-    "use_post_processing_window_for_frz_predictor": false,
+    "use_post_processing_window_for_frz_predictor": true,
     "post_processing_window_size": 8,
     "post_processing_percentage_of_window_in_order_to_frz": 0.5,
 
-    "perform_similarity_guided_training": true,
+    "perform_similarity_guided_training": false,
     "moving_window_size_similarity_guided_training": 20,
     "stride_epochs_similarity_guided_training": 5,
     "variance_threshold_similarity_guided_training": 0.0001,
     "cka_similarity_cutoff_value_similarity_guided_training": 0.3,
     
-    "number_of_cnn_layers_for_cka": 8,
+    "number_of_cnn_layers_for_cka": 53,
     "percentage_of_batches_from_testing_dataset_for_cka": 0.25,
     "num_times_to_iterate_over_dataset_for_cka": 1,
 
@@ -35,6 +34,7 @@
     "scheduler_eta_min": 0.001,
 
     "seed": 1234,
+    "name_of_experiment": "frz_predictor_training_dataset/cifar100/resnet50/dataset_generation",
     "device": "cuda",
     "context_window_size": 30,
     "layer_weight_sample_size": 1024,

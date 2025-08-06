@@ -4,7 +4,7 @@ import torch
 import time
 
 def main():
-    py_script = "CombinedOperation_VGG11_Improved_JSON_Config.py"
+    py_script = "CombinedOperations.py"
     configuration_file = "training_configs/vgg11_bn_cifar100/similarity_guided_training.json"
     
     number_of_seeds_per_gpu = 1

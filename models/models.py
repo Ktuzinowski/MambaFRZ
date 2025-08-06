@@ -17,14 +17,14 @@ def get_models_for_cifar(model_name, dataset_name):
     
     if model_name == "vgg11":
         model = vgg11(weights=None)
-        model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        classifier = nn.Sequential(
-          nn.Linear(512, 256),
-          nn.ReLU(inplace=True),
-          nn.Dropout(0.5),
-          nn.Linear(256, num_classes)
-        )
-        model.classifier = classifier
+        num_features = model.classifier[6].in_features
+        model.classifier[6] = nn.Linear(num_features, num_classes)
+    elif model_name == "vgg16":
+        model = vgg16(weights=None)
+        model.features[4] = nn.Identity()
+        model.features[0] = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
+        num_features = model.classifier[6].in_features
+        model.classifier[6] = nn.Linear(num_features, num_classes)
     elif model_name == "vgg11_bn":
         model = vgg11_bn(weights=None)
         model.avgpool = nn.AdaptiveAvgPool2d((1, 1))

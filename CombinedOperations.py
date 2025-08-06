@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-from torchvision.models import vgg11, vgg11_bn
 import pickle
 import numpy as np
 import random
@@ -14,6 +13,7 @@ import math
 import re
 from torchvision.transforms import v2
 from cka import CKA
+from models import get_model_for_dataset
 from models.utils import random_sample, is_cnn_layer, is_bn_layer, soft_cross_entropy, WarmUpLR
 from models.datasets import get_dataloaders_for_dataset
 from frz_predictor import initialize_mamba2_predictor, initialize_smartfrz_predictor
@@ -126,18 +126,7 @@ def main(config):
     predictor.load_state_dict(torch.load(config["use_pretrained_frz_predictor_path"], map_location=device))
     predictor = predictor.to(device)
 
-  num_classes = 100
-  model = vgg11_bn(weights=None)
-  model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-  # slimmed-down head
-  classifier = nn.Sequential(
-     nn.Linear(512, 256),
-     nn.ReLU(inplace=True),
-     nn.Dropout(0.5),
-     nn.Linear(256, num_classes)
-  )
-  model.classifier = classifier
-  net = model
+  net = get_model_for_dataset(model_name, dataset_name)
   net.to(device)
     
   for name, layer in net.named_modules():
@@ -163,16 +152,7 @@ def main(config):
       key += 1
   
   if not save_fully_trained_ref_model:
-      fully_trained_model = vgg11_bn(weights=None)
-      fully_trained_model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-      # slimmed-down head
-      classifier = nn.Sequential(
-          nn.Linear(512, 256),
-          nn.ReLU(inplace=True),
-          nn.Dropout(0.5),
-          nn.Linear(256, num_classes)
-      )
-      fully_trained_model.classifier = classifier
+      fully_trained_model = get_model_for_dataset(model_name, dataset_name)
       fully_trained_model = fully_trained_model.to(device)
       torch_state = torch.load(config["fully_trained_ref_model_path"], map_location=device)
       fully_trained_model.load_state_dict(torch_state)
@@ -237,6 +217,7 @@ def main(config):
   training_loss_list = []
   testing_loss_list = []
 
+  num_classes = len(set(train_loader.dataset.targets))
   cutmix = v2.CutMix(num_classes=num_classes)
   mixup = v2.MixUp(num_classes=num_classes)
   cutmix_or_mixup = transforms.RandomChoice([cutmix, mixup])
@@ -300,7 +281,7 @@ def main(config):
             if cka_freeze_layer_configuration[model_layer] != -1:
                 continue
           print(f"Comparing for {model_layer} at epoch {epoch}")
-          cka = CKA(net, fully_trained_reference_model, model1_name=f'VGG11_{epoch}_Epoch', model2_name='VGG11_Fully_Trained', model1_layers=[model_layer], model2_layers=[model_layer], device=device)
+          cka = CKA(net, fully_trained_reference_model, model1_name=f'{model_name}_{epoch}_Epoch', model2_name=f'{model_name}_Fully_Trained', model1_layers=[model_layer], model2_layers=[model_layer], device=device)
           with torch.no_grad():
             cka.compare(cka_loader, num_times_iterate_over_test_dataset=config["num_times_to_iterate_over_dataset_for_cka"], percentage_of_batches=config["percentage_of_batches_from_testing_dataset_for_cka"])
 
@@ -489,16 +470,16 @@ def main(config):
       print("New Best Testing Accuracy:", accuracy)
       best_acc = accuracy
 
-  with open(f"{name_of_experiment}/seed_{seed}/fully_trained_reference_model_vgg11_metrics.pkl", "wb") as f:
+  with open(f"{name_of_experiment}/seed_{seed}/fully_trained_reference_model_{model_name}_metrics.pkl", "wb") as f:
     pickle.dump((accuracy_list, training_loss_list, testing_loss_list), f)
 
-  with open(f"{name_of_experiment}/seed_{seed}/vgg11_cka_values_across_epochs.pkl", "wb") as f:
+  with open(f"{name_of_experiment}/seed_{seed}/cka_values_across_epochs.pkl", "wb") as f:
     pickle.dump(tracker_of_cka_values_across_epochs, f)
   with open(f"{name_of_experiment}/seed_{seed}/cka_window_values_across_epochs.pkl", "wb") as f:
     pickle.dump(tracker_of_cka_window_values_across_epochs, f)
   with open(f"{name_of_experiment}/seed_{seed}/cka_freeze_layer_decisions.pkl", "wb") as f:
     pickle.dump(cka_freeze_layer_decisions, f)
-  with open(f"{name_of_experiment}/seed_{seed}/vgg11_cka_freeze_configuration.pkl", "wb") as f:
+  with open(f"{name_of_experiment}/seed_{seed}/cka_freeze_configuration.pkl", "wb") as f:
     pickle.dump(cka_freeze_layer_configuration, f)
   # Save the output of freezing configuration
   with open(f"{name_of_experiment}/seed_{seed}/frz_predictor_track_conv_frozen.pkl", "wb") as f:

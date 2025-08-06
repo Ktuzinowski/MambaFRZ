@@ -1,9 +1,9 @@
 {
-    "model_name": "vgg11_bn",
-    "name_of_experiment": "frz_predictor_training_dataset/cifar100/vgg11_bn/dataset_generation",
+    "model_name": "vgg16",
+    "name_of_experiment": "frz_predictor_training_dataset/cifar100/vgg16/dataset_generation",
     "dataset_name": "cifar100",
     "save_fully_trained_ref_model": false,
-    "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg11_bn_cifar100.pt",
+    "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg16_cifar100.pt",
 
     "use_linear_restriction_for_layer_freezing": true,
 
@@ -19,7 +19,7 @@
     "variance_threshold_similarity_guided_training": 0.0001,
     "cka_similarity_cutoff_value_similarity_guided_training": 0.3,
     
-    "number_of_cnn_layers_for_cka": 8,
+    "number_of_cnn_layers_for_cka": 13,
     "percentage_of_batches_from_testing_dataset_for_cka": 0.25,
     "num_times_to_iterate_over_dataset_for_cka": 1,
 
