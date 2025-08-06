@@ -6,7 +6,6 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.models import vgg11, vgg11_bn
-from torchvision.transforms.autoaugment import AutoAugment, RandAugment, AutoAugmentPolicy
 import pickle
 import numpy as np
 import random
@@ -16,6 +15,7 @@ import re
 from torchvision.transforms import v2
 from cka import CKA
 from models.utils import random_sample, is_cnn_layer, soft_cross_entropy, WarmUpLR
+from models.datasets import get_dataloaders_for_dataset
 from frz_predictor import initialize_mamba2_predictor, initialize_smartfrz_predictor
 from collections import defaultdict
 import json
@@ -55,6 +55,8 @@ def main(config):
   save_fully_trained_ref_model = config["save_fully_trained_ref_model"]
   use_linear_restriction_for_layer_freezing = config["use_linear_restriction_for_layer_freezing"]
   use_predictions_from_frz_predictor_to_frz_layers = config["use_predictions_from_frz_predictor_to_frz_layers"]
+  model_name = config["model_name"]
+  dataset_name = config["dataset_name"]
 
   use_post_processing_window_for_frz_predictor = config["use_post_processing_window_for_frz_predictor"]
   post_processing_window_size = config["post_processing_window_size"]
@@ -119,23 +121,6 @@ def main(config):
   if config["use_pretrained_frz_predictor"]:
     predictor.load_state_dict(torch.load(config["use_pretrained_frz_predictor_path"], map_location=device))
     predictor = predictor.to(device)
-
-  transforms_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    AutoAugment(AutoAugmentPolicy.CIFAR10),  # Apply AutoAugment
-    RandAugment(),  # Randomly chosen augmentations
-    transforms.ToTensor(),
-    transforms.Normalize((0.5070758, 0.4865503, 0.44091913), (0.26733428, 0.25643846, 0.27615047)),
-  ])
-
-  transforms_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5070758, 0.4865503, 0.44091913), (0.26733428, 0.25643846, 0.27615047)),
-  ])
-
-  trainset = torchvision.datasets.CIFAR100(root='data', train=True, download=True, transform=transforms_train)
-  testset = torchvision.datasets.CIFAR100(root='data', train=False, download=True, transform=transforms_test)
 
   num_classes = 100
   model = vgg11_bn(weights=None)
@@ -203,13 +188,11 @@ def main(config):
   num_epochs = config["num_epochs"]
   warmup_epochs = config["warmup_epochs"]
 
-  trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=seed_worker, generator=g)
-  testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=seed_worker, generator=g)
-  cka_loader = torch.utils.data.DataLoader(testset, batch_size=cka_batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
+  train_loader, test_loader, cka_loader = get_dataloaders_for_dataset(dataset_name, batch_size, cka_batch_size, num_workers, worker_init_fn=seed_worker, generator=g)
 
   optimizer = optim.SGD(net.parameters(), lr=config["lr"], momentum=config["momentum"], weight_decay=config["weight_decay"])
   train_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=num_epochs - warmup_epochs, eta_min=config["scheduler_eta_min"]) # learning rate decay
-  iter_per_epoch = len(trainloader)
+  iter_per_epoch = len(train_loader)
   warmup_scheduler = WarmUpLR(optimizer, iter_per_epoch * warmup_epochs)
 
   tracker_of_layers_randomly_sampled_input_weights = {}
@@ -258,9 +241,9 @@ def main(config):
 
     net.train()
     train_running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
+    for i, data in enumerate(train_loader, 0):
       if len(conv_active):
-        num_training_samples = len(trainloader.dataset)
+        num_training_samples = len(train_loader.dataset)
         if i % int((num_training_samples/batch_size) / context_window_size) == 0:
           # Get the weights of current models, only for active layers
           for layer_index in conv_active:
@@ -286,7 +269,7 @@ def main(config):
       if epoch < warmup_epochs:
         warmup_scheduler.step()
 
-    train_running_loss /= len(trainloader)
+    train_running_loss /= len(train_loader)
     if not save_fully_trained_ref_model:
         file_path = f"{name_of_experiment}/smartfrz_input_data/seed_{seed}_{config['device']}/epoch_{epoch}.pkl"
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -368,7 +351,7 @@ def main(config):
     correct = 0
     testing_loss = 0
     with torch.no_grad():
-      for data in testloader:
+      for data in test_loader:
         inputs, labels = data[0].to(device), data[1].to(device)
         outputs = net(inputs)
         _, predicted = torch.max(outputs, 1)
@@ -377,7 +360,7 @@ def main(config):
         correct += (predicted == labels).sum().item()
         testing_loss += criterion(outputs, labels).item()
 
-    testing_loss /= len(testloader)
+    testing_loss /= len(test_loader)
     accuracy = correct / totals
     print("Epoch:", epoch, "Accuracy:", accuracy, "Training Loss:", train_running_loss, "Testing Loss:", testing_loss)
 

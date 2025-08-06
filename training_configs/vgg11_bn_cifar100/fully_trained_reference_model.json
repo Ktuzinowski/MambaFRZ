@@ -1,4 +1,6 @@
 {
+    "model_name": "vgg11_bn",
+    "dataset_name": "cifar100",
     "save_fully_trained_ref_model": true,
     "fully_trained_ref_model_path": "test_fully_trained_model_weights/vgg11_bn_cifar100.pt",
 
