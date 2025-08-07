@@ -1,6 +1,14 @@
 # MambaFRZ
 Freeze prediction with Mamba-based predictor. Generation of freeze training dataset, and verification of freeze predictor methodology.
 
+## Installation Instructions
+To get the same packages that were used inside of this project, follow the below instructions inside the directory of the repo.
+This will create a new conda environment called **MambaFRZ**. Use this to run all following Jupyter Notebooks and Python scripts.
+```
+cd MambaFRZ
+conda env create -f environment.yml
+```
+
 ## 📁 Project Directory Structure
 
 ```text
