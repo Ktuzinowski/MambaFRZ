@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision
-from torchvision.models import vgg11, vgg11_bn, resnet50
+from torchvision.models import vgg11, vgg16, vgg11_bn, resnet50
 
 def get_model_for_dataset(model_name, dataset_name):
     if dataset_name == "cifar10" or dataset_name == "cifar100":
